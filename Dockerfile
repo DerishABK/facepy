@@ -19,7 +19,8 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# We limit MAKEFLAGS to -j1 to prevent dlib from eating all RAM during compilation
+RUN MAKEFLAGS="-j1" pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code
 COPY . .
