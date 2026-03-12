@@ -4,5 +4,6 @@ numpy
 Flask
 Flask-Cors
 gunicorn
-dlib-bin
-face-recognition
+face-recognition-models
+Pillow
+Click
