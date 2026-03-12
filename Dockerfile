@@ -1,32 +1,26 @@
-# Use an official Python runtime as a parent image
-FROM python:3.10-slim
+# Use a pre-built face_recognition image to avoid memory-intensive compilation
+FROM animcogn/face_recognition:latest
 
-# Install system dependencies for dlib and opencv
+# Install additional system dependencies for OpenCV and Flask
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    libopenblas-dev \
-    liblapack-dev \
-    libx11-6 \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory in the container
+# Set the working directory
 WORKDIR /app
 
-# Copy the requirements file into the container
+# Copy only the essentials first
 COPY requirements.txt .
 
-# Install Python dependencies
-# We limit MAKEFLAGS to -j1 to prevent dlib from eating all RAM during compilation
-RUN MAKEFLAGS="-j1" pip install --no-cache-dir -r requirements.txt
+# Install additional Python dependencies (face-recognition will already be satisfied)
+RUN pip install --no-cache-dir Flask Flask-Cors requests opencv-python-headless gunicorn
 
 # Copy the rest of the application code
 COPY . .
 
-# Expose the port the app runs on
+# Expose port
 EXPOSE 5000
 
-# Command to run the application using gunicorn
+# Run with gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "face_attendance:app"]
