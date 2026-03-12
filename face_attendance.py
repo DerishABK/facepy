@@ -124,9 +124,11 @@ def mark_attendance(prisoner_id, rec_date, rec_time):
             "attendance_date": rec_date,
             "time_in": rec_time
         }
-        requests.post(ATTENDANCE_API, json=data, timeout=5)
+        requests.post(ATTENDANCE_API, json=data, headers=HEADERS, timeout=5)
         return True
-    except: return False
+    except Exception as e:
+        print(f"Failed to mark attendance: {e}")
+        return False
 
 @app.route('/recognize_image', methods=['POST'])
 def recognize_image():
