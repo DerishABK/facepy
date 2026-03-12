@@ -165,9 +165,9 @@ def recognize_image():
                 print(f"Server: BEST MATCH FOUND -> {p_id} (Dist: {face_distances[best_match_index]:.2f})")
                 mark_attendance(p_id, now_str_date, now_str_time)
                 last_recognition_time[p_id] = timestamp
-                results_list.append({"prisoner_id": p_id, "prisoner_name": get_best_name(p_id)})
-            else:
-                print(f"Server: Match skipped (cooldown active) -> {p_id}")
+            
+            # Always add to results_list so the UI shows the name, even during cooldown
+            results_list.append({"prisoner_id": p_id, "prisoner_name": get_best_name(p_id)})
         else:
             print(f"Server: Face detected but distance too high ({np.min(face_distances):.2f})")
             
