@@ -143,21 +143,33 @@ def recognize_image():
     print(f"Server: Analyzing frame. Found {len(encodings)} faces.")
     
     results_list = []
+    now = datetime.now()
+    now_str_date = now.strftime("%Y-%m-%d")
+    now_str_time = now.strftime("%H:%M:%S")
+    timestamp = time.time()
+
     for encoding in encodings:
-        if not known_encodings:
-            print("Server: Error - No face encodings loaded!")
-            break
+        if not known_encodings: break
+        
+        # Calculate distances to all known faces
+        face_distances = face_recognition.face_distance(known_encodings, encoding)
+        best_match_index = np.argmin(face_distances)
+        
+        # Stricter tolerance (0.5 instead of 0.6)
+        if face_distances[best_match_index] < 0.5:
+            p_id = known_ids[best_match_index]
             
-        results = face_recognition.compare_faces(known_encodings, encoding, tolerance=0.6)
-        if True in results:
-            idx = results.index(True)
-            p_id = known_ids[idx]
-            now = datetime.now()
-            print(f"Server: MATCH FOUND -> {p_id}")
-            mark_attendance(p_id, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"))
-            results_list.append({"prisoner_id": p_id, "prisoner_name": get_best_name(p_id)})
+            # 30-second Cooldown to prevent duplicate logs in same session
+            last_time = last_recognition_time.get(p_id, 0)
+            if (timestamp - last_time) > 30:
+                print(f"Server: BEST MATCH FOUND -> {p_id} (Dist: {face_distances[best_match_index]:.2f})")
+                mark_attendance(p_id, now_str_date, now_str_time)
+                last_recognition_time[p_id] = timestamp
+                results_list.append({"prisoner_id": p_id, "prisoner_name": get_best_name(p_id)})
+            else:
+                print(f"Server: Match skipped (cooldown active) -> {p_id}")
         else:
-            print("Server: Face detected but NO MATCH in database.")
+            print(f"Server: Face detected but distance too high ({np.min(face_distances):.2f})")
             
     return json.dumps({"status": "success", "results": results_list, "faces_count": len(encodings)})
 
