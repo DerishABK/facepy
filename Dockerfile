@@ -1,8 +1,10 @@
-# Use a pre-built face_recognition image to avoid memory-intensive compilation
-FROM animcogn/face_recognition:latest
+# Use a clean, modern Python base
+FROM python:3.10-slim-bullseye
 
-# Install additional system dependencies for OpenCV and Flask
+# Install essential system dependencies for OpenCV and Face Recognition
 RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
@@ -10,11 +12,12 @@ RUN apt-get update && apt-get install -y \
 # Set the working directory
 WORKDIR /app
 
-# Copy only the essentials first
+# Copy requirements file first
 COPY requirements.txt .
 
-# Install additional Python dependencies (face-recognition will already be satisfied)
-RUN pip install --no-cache-dir Flask Flask-Cors requests opencv-python-headless gunicorn
+# Install dependencies using the pre-compiled dlib-bin
+# This avoids the memory-heavy compilation of dlib
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code
 COPY . .

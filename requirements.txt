@@ -6,4 +6,4 @@ Flask
 Flask-Cors
 gunicorn
 cmake
-dlib
+dlib-bin
