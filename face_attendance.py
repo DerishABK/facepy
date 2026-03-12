@@ -20,12 +20,14 @@ PRISONER_UPLOADS = os.environ.get("UPLOADS_PATH", "../uploads/prisoners/")
 IS_RENDER = os.environ.get("RENDER", "false").lower() == "true"
 
 # Global state
+HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
 current_shift = "General"
 current_type = "Entry"
 last_recognition_time = {}
 known_encodings = []
 known_ids = []
 known_names = {}
+load_status = {"names": 0, "images": 0, "errors": []}
 
 def normalize_id(pid):
     if pid.startswith("P-"):
@@ -41,51 +43,59 @@ def get_best_name(pid):
     return "Unknown"
 
 def load_face_data():
-    global known_encodings, known_ids, known_names
+    global known_encodings, known_ids, known_names, load_status
     print("\n--- RELOADING FACE DATABASE ---")
     known_encodings = []
     known_ids = []
     known_names = {}
+    load_status = {"names": 0, "images": 0, "errors": []}
     
     # 1. Fetch names
     try:
-        res = requests.get(PRISONER_LIST_API, timeout=5)
+        res = requests.get(PRISONER_LIST_API, headers=HEADERS, timeout=10)
         if res.status_code == 200:
             known_names = res.json()
+            load_status["names"] = len(known_names)
             print(f"Fetched {len(known_names)} names.")
+        else:
+            load_status["errors"].append(f"Names API error: {res.status_code}")
     except Exception as e:
+        load_status["errors"].append(f"Names Fetch Error: {str(e)}")
         print(f"Error fetching names: {e}")
 
     # 2. Prepare Uploads Dir
     if not os.path.exists(PRISONER_UPLOADS):
         os.makedirs(PRISONER_UPLOADS, exist_ok=True)
 
-    # 3. Sync images from InfinityFree (Crucial for Cloud Deployment)
+    # 3. Sync images from InfinityFree
     print("Syncing images from Cloud Backend...")
     try:
-        # We assume get_prisoner_faces.php returns { "P-ID": "path/to/img.jpg", ... }
         faces_api = BASE_URL + "get_prisoner_faces.php"
-        faces_res = requests.get(faces_api, timeout=10)
+        faces_res = requests.get(faces_api, headers=HEADERS, timeout=10)
         if faces_res.status_code == 200:
-            faces_map = faces_res.json()
-            for pid, photo_path in faces_map.items():
-                # photo_path might be "../uploads/prisoners/P-ID/img.jpg"
-                clean_path = photo_path.replace("../", "")
-                img_url = BASE_URL.replace("backend/", "") + clean_path
-                
-                pid_dir = os.path.join(PRISONER_UPLOADS, pid)
-                os.makedirs(pid_dir, exist_ok=True)
-                local_img_path = os.path.join(pid_dir, "front.jpg")
-                
-                if not os.path.exists(local_img_path):
-                    print(f"Downloading {pid}...")
-                    img_data = requests.get(img_url, timeout=10).content
-                    with open(local_img_path, "wb") as f:
-                        f.write(img_data)
+            try:
+                faces_map = faces_res.json()
+                for pid, photo_path in faces_map.items():
+                    clean_path = photo_path.replace("../", "")
+                    img_url = BASE_URL.replace("backend/", "") + clean_path
+                    
+                    pid_dir = os.path.join(PRISONER_UPLOADS, pid)
+                    os.makedirs(pid_dir, exist_ok=True)
+                    local_img_path = os.path.join(pid_dir, "front.jpg")
+                    
+                    if not os.path.exists(local_img_path):
+                        print(f"Downloading {pid}...")
+                        img_data = requests.get(img_url, headers=HEADERS, timeout=10).content
+                        with open(local_img_path, "wb") as f:
+                            f.write(img_data)
+                    load_status["images"] += 1
+            except Exception as json_err:
+                load_status["errors"].append(f"Invalid JSON from Faces API: {str(json_err)}")
         else:
-            print(f"Could not reach faces API: {faces_res.status_code}")
+            load_status["errors"].append(f"Faces API error: {faces_res.status_code}")
     except Exception as e:
-        print(f"Sync failed (InfinityFree Security?) : {e}")
+        load_status["errors"].append(f"Sync Error: {str(e)}")
+        print(f"Sync failed: {e}")
 
     # 4. Load into Memory
     for prisoner_id in os.listdir(PRISONER_UPLOADS):
@@ -152,7 +162,13 @@ def set_context():
 @app.route('/reload_data', methods=['POST', 'GET'])
 def reload_data():
     load_face_data()
-    return json.dumps({"status": "success"})
+    return json.dumps({
+        "status": "success", 
+        "count": len(known_ids),
+        "names_found": load_status["names"],
+        "images_found": load_status["images"],
+        "errors": load_status["errors"]
+    })
 
 @app.route('/video_feed')
 def video_feed():
