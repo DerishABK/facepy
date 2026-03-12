@@ -135,19 +135,31 @@ def recognize_image():
     if 'image' not in request.files: return json.dumps({"status": "error", "message": "No image"}), 400
     file = request.files['image']
     img = face_recognition.load_image_file(file)
-    encodings = face_recognition.face_encodings(img)
+    
+    # 1. Detect faces in current frame
+    face_locations = face_recognition.face_locations(img)
+    encodings = face_recognition.face_encodings(img, face_locations)
+    
+    print(f"Server: Analyzing frame. Found {len(encodings)} faces.")
     
     results_list = []
     for encoding in encodings:
+        if not known_encodings:
+            print("Server: Error - No face encodings loaded!")
+            break
+            
         results = face_recognition.compare_faces(known_encodings, encoding, tolerance=0.6)
         if True in results:
             idx = results.index(True)
             p_id = known_ids[idx]
             now = datetime.now()
+            print(f"Server: MATCH FOUND -> {p_id}")
             mark_attendance(p_id, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"))
             results_list.append({"prisoner_id": p_id, "prisoner_name": get_best_name(p_id)})
+        else:
+            print("Server: Face detected but NO MATCH in database.")
             
-    return json.dumps({"status": "success", "results": results_list})
+    return json.dumps({"status": "success", "results": results_list, "faces_count": len(encodings)})
 
 @app.route('/sync_prisoner', methods=['POST'])
 def sync_prisoner():
