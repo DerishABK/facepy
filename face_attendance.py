@@ -147,6 +147,47 @@ def recognize_image():
             
     return json.dumps({"status": "success", "results": results_list})
 
+@app.route('/sync_prisoner', methods=['POST'])
+def sync_prisoner():
+    pid = request.form.get('id')
+    name = request.form.get('name')
+    file = request.files.get('image')
+    
+    if not pid or not file: 
+        return json.dumps({"status": "error", "message": "Missing ID or Image"}), 400
+    
+    try:
+        # 1. Save locally for persistence
+        pid_dir = os.path.join(PRISONER_UPLOADS, pid)
+        os.makedirs(pid_dir, exist_ok=True)
+        img_path = os.path.join(pid_dir, "front.jpg")
+        file.save(img_path)
+        
+        # 2. Update Names Mapping
+        known_names[pid] = name
+        
+        # 3. Process Encoding
+        image = face_recognition.load_image_file(img_path)
+        encs = face_recognition.face_encodings(image)
+        
+        if len(encs) > 0:
+            # Remove old encodings for this specific ID to prevent duplicates
+            indices = [i for i, x in enumerate(known_ids) if x == pid]
+            for i in reversed(indices):
+                known_encodings.pop(i)
+                known_ids.pop(i)
+                
+            for enc in encs:
+                known_encodings.append(enc)
+                known_ids.append(pid)
+            
+            return json.dumps({"status": "success", "samples": len(encs)})
+        else:
+            return json.dumps({"status": "error", "message": "No face found in synced image"}), 422
+            
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)}), 500
+
 @app.route('/set_context', methods=['POST'])
 def set_context():
     global current_shift, current_type
@@ -165,8 +206,8 @@ def reload_data():
     return json.dumps({
         "status": "success", 
         "count": len(known_ids),
-        "names_found": load_status["names"],
-        "images_found": load_status["images"],
+        "names_found": len(known_names),
+        "images_local": load_status["images"],
         "errors": load_status["errors"]
     })
 
