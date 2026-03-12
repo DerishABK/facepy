@@ -5,7 +5,7 @@ import os
 
 # Configuration
 # Replace with your Render URL after deployment
-RENDER_URL = "https://your-app-name.onrender.com/recognize_image"
+RENDER_URL = "https://facepy.onrender.com/recognize_image"
 # If testing locally with the cloud-ready script running:
 # RENDER_URL = "http://127.0.0.1:5000/recognize_image"
 

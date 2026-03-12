@@ -137,10 +137,27 @@ def recognize_image():
             
     return json.dumps({"status": "success", "results": results_list})
 
+@app.route('/set_context', methods=['POST'])
+def set_context():
+    global current_shift, current_type
+    try:
+        data = request.get_json()
+        current_shift = data.get('shift', 'General')
+        current_type = data.get('type', 'Entry')
+        print(f"Context updated: {current_shift} - {current_type}")
+        return json.dumps({"status": "success"})
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)}), 400
+
 @app.route('/reload_data', methods=['POST', 'GET'])
 def reload_data():
     load_face_data()
     return json.dumps({"status": "success"})
+
+@app.route('/video_feed')
+def video_feed():
+    # Cloud version doesn't server camera feed, returning empty to avoid 404
+    return "Cloud server cannot serve camera feed directly. Use the Web Scanner client.", 200
 
 @app.route('/ping', methods=['GET', 'POST'])
 def ping():
