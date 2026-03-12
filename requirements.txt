@@ -1,9 +1,8 @@
 opencv-python-headless
-face-recognition
 requests
 numpy
 Flask
 Flask-Cors
 gunicorn
-cmake
 dlib-bin
+face-recognition
