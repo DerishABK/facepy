@@ -47,16 +47,47 @@ def load_face_data():
     known_ids = []
     known_names = {}
     
+    # 1. Fetch names
     try:
         res = requests.get(PRISONER_LIST_API, timeout=5)
         if res.status_code == 200:
             known_names = res.json()
-    except: pass
+            print(f"Fetched {len(known_names)} names.")
+    except Exception as e:
+        print(f"Error fetching names: {e}")
 
+    # 2. Prepare Uploads Dir
     if not os.path.exists(PRISONER_UPLOADS):
         os.makedirs(PRISONER_UPLOADS, exist_ok=True)
-        return
 
+    # 3. Sync images from InfinityFree (Crucial for Cloud Deployment)
+    print("Syncing images from Cloud Backend...")
+    try:
+        # We assume get_prisoner_faces.php returns { "P-ID": "path/to/img.jpg", ... }
+        faces_api = BASE_URL + "get_prisoner_faces.php"
+        faces_res = requests.get(faces_api, timeout=10)
+        if faces_res.status_code == 200:
+            faces_map = faces_res.json()
+            for pid, photo_path in faces_map.items():
+                # photo_path might be "../uploads/prisoners/P-ID/img.jpg"
+                clean_path = photo_path.replace("../", "")
+                img_url = BASE_URL.replace("backend/", "") + clean_path
+                
+                pid_dir = os.path.join(PRISONER_UPLOADS, pid)
+                os.makedirs(pid_dir, exist_ok=True)
+                local_img_path = os.path.join(pid_dir, "front.jpg")
+                
+                if not os.path.exists(local_img_path):
+                    print(f"Downloading {pid}...")
+                    img_data = requests.get(img_url, timeout=10).content
+                    with open(local_img_path, "wb") as f:
+                        f.write(img_data)
+        else:
+            print(f"Could not reach faces API: {faces_res.status_code}")
+    except Exception as e:
+        print(f"Sync failed (InfinityFree Security?) : {e}")
+
+    # 4. Load into Memory
     for prisoner_id in os.listdir(PRISONER_UPLOADS):
         prisoner_dir = os.path.join(PRISONER_UPLOADS, prisoner_id)
         if os.path.isdir(prisoner_dir):
@@ -70,7 +101,7 @@ def load_face_data():
                             known_encodings.append(enc)
                             known_ids.append(prisoner_id)
                     except: pass
-    print(f"Loaded {len(known_ids)} face samples.")
+    print(f"Face database ready: {len(known_ids)} encodings loaded.")
 
 load_face_data()
 
