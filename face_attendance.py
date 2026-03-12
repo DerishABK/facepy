@@ -5,7 +5,7 @@ import numpy as np
 import requests
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from flask import Flask, Response, request
 from flask_cors import CORS
 
@@ -143,7 +143,9 @@ def recognize_image():
     print(f"Server: Analyzing frame. Found {len(encodings)} faces.")
     
     results_list = []
-    now = datetime.now()
+    # Force IST Timezone (UTC + 5:30)
+    ist = timezone(timedelta(hours=5, minutes=30))
+    now = datetime.now(ist)
     now_str_date = now.strftime("%Y-%m-%d")
     now_str_time = now.strftime("%H:%M:%S")
     timestamp = time.time()
