@@ -165,7 +165,7 @@ def recognize_image():
             last_time = last_recognition_time.get(p_id, 0)
             if (timestamp - last_time) > 30:
                 print(f"Server: BEST MATCH FOUND -> {p_id} (Dist: {face_distances[best_match_index]:.2f})")
-                mark_attendance(p_id, now_str_date, now_str_time)
+                # mark_attendance(p_id, now_str_date, now_str_time) # DISABLED: Browser will handle marking to bypass firewall
                 last_recognition_time[p_id] = timestamp
             
             # Always add to results_list so the UI shows the name, even during cooldown
